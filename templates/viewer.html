@@ -1,104 +1,217 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Viewer</title>
-  <style>
-    body {
-      font-family: system-ui, Segoe UI, Roboto, Arial;
-      background: #f5f5f5;
-      padding: 20px;
-    }
-    h2 { margin-bottom: 10px; }
-    img {
-      max-width: 100%;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      display: block;
-      background: #000;
-    }
-    .controls {
-      margin: 15px 0;
-      display: flex;
-      gap: 10px;
-    }
-    button {
-      padding: 10px 16px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      background: #1976d2;
-      color: white;
-      font-size: 15px;
-    }
-    button:disabled {
-      background: #999;
-      cursor: not-allowed;
-    }
-  </style>
-</head>
-<body>
+<meta charset="utf-8">
+<title>Viewer</title>
+<style>
+  body {
+    font-family: system-ui, Roboto, Arial;
+    background: #f1f3f4;
+    margin: 0;
+    padding: 20px;
+  }
 
+  .card {
+    background: white;
+    padding: 20px;
+    border-radius: 14px;
+    max-width: 900px;
+    margin: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+
+  h2 { margin-top: 0; }
+
+  .cctv {
+    background: #000;
+    border-radius: 10px;
+    border: 2px solid #333;
+    position: relative;
+    overflow: hidden;
+  }
+
+  img {
+    width: 100%;
+    display: block;
+    background: #000;
+  }
+
+  #placeholder {
+    color: #fff;
+    text-align: center;
+    padding: 50px 0;
+    display: none;
+  }
+
+  .overlay {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    color: #00ffea;
+    font-size: 14px;
+    background: rgba(0,0,0,0.5);
+    padding: 4px 7px;
+    border-radius: 5px;
+  }
+
+  .controls {
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #1976d2;
+    color: white;
+    cursor: pointer;
+  }
+
+  button:disabled { background: #999; }
+
+  #progress {
+    width: 100%;
+    height: 6px;
+    background: #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 10px;
+    display: none;
+  }
+  #bar {
+    height: 100%;
+    width: 0%;
+    background: #1976d2;
+  }
+</style>
+</head>
+
+<body>
+<div class="card">
   <h2>Viewer</h2>
-  <p>Raw stream for other devices: <code>/stream</code></p>
 
   <div class="controls">
     <button id="startRec">Start Recording</button>
     <button id="stopRec" disabled>Stop & Save</button>
+    <button id="fullBtn">Full Screen</button>
   </div>
 
-  <img id="mjpeg" src="/stream" alt="Live Stream">
+  <div id="progress"><div id="bar"></div></div>
 
-  <script>
-    const img = document.getElementById("mjpeg");
-    const startBtn = document.getElementById("startRec");
-    const stopBtn = document.getElementById("stopRec");
+  <div class="cctv" id="cctvFrame">
+    <img id="mjpeg" src="/stream" alt="">
+    <div id="placeholder">Waiting for camera...</div>
+    <div class="overlay" id="overlayText">FPS: 0 | REC: 00:00</div>
+  </div>
+</div>
 
-    let canvas, ctx, recorder, chunks = [];
 
-    function createCanvas() {
-      canvas = document.createElement("canvas");
-      canvas.width = img.clientWidth;
-      canvas.height = img.clientHeight;
-      ctx = canvas.getContext("2d");
-    }
+<script>
+const img = document.getElementById("mjpeg");
+const card = document.getElementById("cctvFrame");
+const overlay = document.getElementById("overlayText");
+const placeholder = document.getElementById("placeholder");
+const startBtn = document.getElementById("startRec");
+const stopBtn = document.getElementById("stopRec");
+const fullBtn = document.getElementById("fullBtn");
 
-    function drawFrame() {
-      if (!canvas || !ctx) return;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      requestAnimationFrame(drawFrame);
-    }
+let canvas, ctx, recorder, chunks = [];
+let lastTime = 0;
+let fps = 0;
 
-    startBtn.onclick = () => {
-      createCanvas();
-      drawFrame();
+let recStart = 0;
+let timerHandle = null;
 
-      const stream = canvas.captureStream(30);
-      recorder = new MediaRecorder(stream);
+// FPS detector
+img.onload = () => {
+  const now = performance.now();
+  fps = Math.round(1000 / (now - lastTime));
+  lastTime = now;
+};
 
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/webm" });
-        const url = URL.createObjectURL(blob);
+// Check if camera active
+setInterval(() => {
+  if (fps === 0) {
+    placeholder.style.display = "block";
+  } else {
+    placeholder.style.display = "none";
+  }
+}, 800);
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "recorded_video.webm";
-        a.click();
+// Update overlay
+setInterval(() => {
+  let recTime = 0;
+  if (recStart) {
+    recTime = Math.floor((Date.now() - recStart) / 1000);
+  }
+  const mm = String(Math.floor(recTime / 60)).padStart(2,'0');
+  const ss = String(recTime % 60).padStart(2,'0');
+  overlay.textContent = `FPS: ${fps} | REC: ${mm}:${ss}`;
+}, 500);
 
-        chunks = [];
-      };
+// Recording
+startBtn.onclick = () => {
+  canvas = document.createElement("canvas");
+  canvas.width = img.clientWidth;
+  canvas.height = img.clientHeight;
+  ctx = canvas.getContext("2d");
 
-      recorder.start();
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    };
+  function draw() {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    requestAnimationFrame(draw);
+  }
+  draw();
 
-    stopBtn.onclick = () => {
-      recorder.stop();
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    };
-  </script>
+  const stream = canvas.captureStream(30);
+  recorder = new MediaRecorder(stream);
+  chunks = [];
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recorded.webm";
+    a.click();
+  };
+
+  recorder.start();
+  recStart = Date.now();
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+
+  document.getElementById("progress").style.display = "block";
+  animateBar();
+};
+
+function animateBar() {
+  const bar = document.getElementById("bar");
+  let w = 0;
+  bar.style.width = "0%";
+  timerHandle = setInterval(() => {
+    w = (w + 1) % 100;
+    bar.style.width = w + "%";
+  }, 150);
+}
+
+stopBtn.onclick = () => {
+  recorder.stop();
+  recStart = 0;
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+  clearInterval(timerHandle);
+  document.getElementById("progress").style.display = "none";
+};
+
+// Full-screen
+fullBtn.onclick = () => {
+  card.requestFullscreen();
+};
+</script>
+
 </body>
 </html>
