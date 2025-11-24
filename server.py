@@ -36,9 +36,56 @@ CAMERA_PAGE = """<!doctype html>
   <meta charset="utf-8">
   <title>Camera Client — Upload frames</title>
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;padding:16px}
-    video, img{max-width:100%;border-radius:8px;border:1px solid #ddd}
-    #controls{margin-top:8px}
+    body {
+      font-family: system-ui, Segoe UI, Roboto, Arial;
+      background: #fafafa;
+      padding: 20px;
+    }
+    video, img{
+      max-width:100%;
+      border-radius:8px;
+      border:1px solid #ddd
+    }
+    #controls{
+      margin-top:8px
+    }
+    h2 { margin-bottom: 10px; }
+    video {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background: #000;
+    }
+    #controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    label {
+      background: white;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    button {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      background: #1976d2;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+    code {
+      background: #eee;
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -127,20 +174,109 @@ CAMERA_PAGE = """<!doctype html>
 </html>
 """
 
-VIEWER_PAGE = """<!doctype html>
+VIEWER_PAGE = """
+<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MJPEG Viewer</title>
+  <title>Viewer</title>
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;padding:16px}
-    img{max-width:100%;border-radius:8px;border:1px solid #ddd;display:block}
+    body {
+      font-family: system-ui, Segoe UI, Roboto, Arial;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    h2 { margin-bottom: 10px; }
+    img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      display: block;
+      background: #000;
+    }
+    .controls {
+      margin: 15px 0;
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      background: #1976d2;
+      color: white;
+      font-size: 15px;
+    }
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
-  <h2>MJPEG Viewer</h2>
-  <p>Raw MJPEG stream is at <code>/stream</code> — you can use this URL in other devices.</p>
-  <img id="mjpeg" src="/stream" alt="MJPEG stream">
+
+  <h2>Viewer</h2>
+  <p>Raw stream for other devices: <code>/stream</code></p>
+
+  <div class="controls">
+    <button id="startRec">Start Recording</button>
+    <button id="stopRec" disabled>Stop & Save</button>
+  </div>
+
+  <img id="mjpeg" src="/stream" alt="Live Stream">
+
+  <script>
+    const img = document.getElementById("mjpeg");
+    const startBtn = document.getElementById("startRec");
+    const stopBtn = document.getElementById("stopRec");
+
+    let canvas, ctx, recorder, chunks = [];
+
+    function createCanvas() {
+      canvas = document.createElement("canvas");
+      canvas.width = img.clientWidth;
+      canvas.height = img.clientHeight;
+      ctx = canvas.getContext("2d");
+    }
+
+    function drawFrame() {
+      if (!canvas || !ctx) return;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      requestAnimationFrame(drawFrame);
+    }
+
+    startBtn.onclick = () => {
+      createCanvas();
+      drawFrame();
+
+      const stream = canvas.captureStream(30);
+      recorder = new MediaRecorder(stream);
+
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "recorded_video.webm";
+        a.click();
+
+        chunks = [];
+      };
+
+      recorder.start();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+
+    stopBtn.onclick = () => {
+      recorder.stop();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+  </script>
 </body>
 </html>
 """
