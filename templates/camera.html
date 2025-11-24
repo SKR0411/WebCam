@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Camera Client — Upload frames</title>
+  <style>
+    body {
+      font-family: system-ui, Segoe UI, Roboto, Arial;
+      background: #fafafa;
+      padding: 20px;
+    }
+    video, img{
+      max-width:100%;
+      border-radius:8px;
+      border:1px solid #ddd
+    }
+    #controls{
+      margin-top:8px
+    }
+    h2 { margin-bottom: 10px; }
+    video {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background: #000;
+    }
+    #controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    label {
+      background: white;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    button {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      background: #1976d2;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+    code {
+      background: #eee;
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Camera → Server (uploading frames)</h2>
+  <video id="video" autoplay playsinline muted></video>
+  <div id="controls">
+    <label>FPS: <input id="fps" value="5" type="number" min="1" max="30"></label>
+    <label>Quality (0.1 - 1.0): <input id="quality" value="0.7" step="0.1" min="0.1" max="1"></label>
+    <button id="start">Start</button>
+    <button id="stop" disabled>Stop</button>
+  </div>
+  <p>Viewer URL: <code id="viewerUrl">loading…</code></p>
+  <script>
+  (async () => {
+    const video = document.getElementById('video');
+    const startBtn = document.getElementById('start');
+    const stopBtn = document.getElementById('stop');
+    const fpsInput = document.getElementById('fps');
+    const qualityInput = document.getElementById('quality');
+    const viewerUrlEl = document.getElementById('viewerUrl');
+
+    viewerUrlEl.textContent = location.origin + '/viewer';
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = stream;
+    } catch (e) {
+      alert('Camera error: ' + e.message);
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let running = false;
+    let loopHandle = null;
+
+    function sendFrameBlob(blob) {
+      fetch('/upload', {
+        method: 'POST',
+        headers: {'Content-Type': 'image/jpeg'},
+        body: blob
+      }).catch(err => console.warn('Upload error', err));
+    }
+
+    async function captureOnce() {
+      if (!video.videoWidth || !video.videoHeight) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const quality = parseFloat(qualityInput.value) || 0.7;
+      canvas.toBlob((blob) => {
+        if (blob) sendFrameBlob(blob);
+      }, 'image/jpeg', quality);
+    }
+
+    function startLoop() {
+      if (running) return;
+      running = true;
+      const fps = Math.max(1, parseInt(fpsInput.value) || 5);
+      const interval = 1000 / fps;
+      loopHandle = setInterval(captureOnce, interval);
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    }
+
+    function stopLoop() {
+      running = false;
+      if (loopHandle) { clearInterval(loopHandle); loopHandle = null; }
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    startBtn.onclick = startLoop;
+    stopBtn.onclick = stopLoop;
+  })();
+  </script>
+</body>
+</html>
