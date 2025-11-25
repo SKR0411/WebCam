@@ -62,7 +62,6 @@
   <p>Viewer: <code id="viewerUrl"></code></p>
 </div>
 
-
 <script>
 (async () => {
   const video = document.getElementById('video');
@@ -89,10 +88,19 @@
   let running = false;
   let handle = null;
 
+  //new
   function sendFrame(blob) {
-    fetch('/upload', { method:'POST', headers:{'Content-Type':'image/jpeg'}, body: blob });
+    const form = new FormData();
+    form.append("frame", blob);
+    form.append("fps", fpsInput.value);
+    form.append("quality", qualityInput.value);
+    form.append("width", video.videoWidth);
+    form.append("height", video.videoHeight);
+  
+    fetch("/upload", { method: "POST", body: form });
   }
-
+  //end
+  
   function capture() {
     if (!video.videoWidth) return;
     canvas.width = video.videoWidth;

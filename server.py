@@ -12,7 +12,7 @@ BOUNDARY = "--frameboundary"
 
 @app.route("/")
 def index():
-    return '<p>Server running. Go to <a href="/camera">/camera</a> or <a href="/viewer">/viewer</a></p>'
+    return render_template("index.html")
 
 
 @app.route("/camera")
@@ -27,14 +27,28 @@ def viewer_page():
 
 @app.route("/upload", methods=["POST"])
 def upload_frame():
-    data = request.get_data()
-    if not data:
-        return ("no data", 400)
+    #new
+    frame = request.files.get("frame")
+    fps = request.form.get("fps")
+    quality = request.form.get("quality")
+    width = request.form.get("width")
+    height = request.form.get("height")
+    
+    if not frame:
+        return ("no frame", 400)
+    
+    jpg_bytes = frame.read()
+    
     with frame_lock:
-        latest_frame["data"] = data
+        latest_frame["data"] = jpg_bytes
         latest_frame["time"] = time.time()
+        latest_frame["fps"] = fps
+        latest_frame["quality"] = quality
+        latest_frame["width"] = width
+        latest_frame["height"] = height
+    
     return ("ok", 200)
-
+    #end
 
 def mjpeg_generator():
     last = 0
@@ -45,11 +59,22 @@ def mjpeg_generator():
 
         if frame and ts != last:
             last = ts
-            yield (
+            #old
+            '''yield (
                 b"--frameboundary\r\n"
                 b"Content-Type: image/jpeg\r\n\r\n" +
                 frame + b"\r\n"
+            )'''
+            #new
+            yield (
+                b"--frameboundary\r\n"
+                b"Content-Type: image/jpeg\r\n" +
+                f"X-FPS: {latest_frame.get('fps')}\r\n".encode() +
+                f"X-QUALITY: {latest_frame.get('quality')}\r\n".encode() +
+                f"X-RES: {latest_frame.get('width')}x{latest_frame.get('height')}\r\n\r\n".encode() +
+                frame + b"\r\n"
             )
+            #end
         else:
             time.sleep(0.05)
 
