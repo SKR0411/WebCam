@@ -53,6 +53,15 @@
   padding: 4px 7px;
   border-radius: 5px;
   }
+  
+  #rec {
+  color: #00ffea;
+  font-size: 14px;
+  background: rgba(0,0,0,0.5);
+  padding: 7px;
+  
+  
+  }
 
   .controls {
   margin: 15px 0;
@@ -90,20 +99,22 @@
 
 <body>
 <div class="card">
-  <h2>Viewer</h2>
-
-  <div class="controls">
-  <button id="startRec">Start Recording</button>
-  <button id="stopRec" disabled>Stop & Save</button>
-  <button id="fullBtn">Full Screen</button>
-  </div>
+  <h2>Camera → Server →  Viewer </h2>
 
   <div id="progress"><div id="bar"></div></div>
 
   <div class="cctv" id="cctvFrame">
-  <img id="mjpeg" src="/stream" alt="">
-  <div id="placeholder">Waiting for camera...</div>
-  <div class="overlay" id="overlayText">FPS: 0 | REC: 00:00</div>
+    <img id="mjpeg" src="/stream" alt="">
+    <div id="placeholder">Waiting for camera...</div>
+    <div class="overlay" id="overlayText">FPS: 0 | REC: 00:00 | Resolution: Unknown | Quality: Unknown</div>
+  </div>
+  
+  <div class="controls">
+    <button id="startRec">Start Recording</button>
+    <button id="stopRec" disabled>Stop & Save</button>
+  </div>
+  <div class="controls">
+    <button id="fullBtn">Full Screen</button>
   </div>
 </div>
 
@@ -119,6 +130,7 @@ const fullBtn = document.getElementById("fullBtn");
 let canvas, ctx, recorder, chunks = [];
 let lastTime = 0;
 let fps = 0;
+isPaused = false
 
 let recStart = 0;
 let timerHandle = null;
@@ -130,42 +142,57 @@ let timerHandle = null;
   let buffer = "";
 
   while (true) {
-  const { value, done } = await reader.read();
-  if (done) break;
-
-  const text = new TextDecoder().decode(value);
-  buffer += text;
-
-  const headerEnd = buffer.indexOf("\r\n\r\n");
-  if (headerEnd !== -1) {
-    const header = buffer.slice(0, headerEnd);
-
-    const fpsMatch = header.match(/X-FPS:\s*(.*)/);
-    const qualityMatch = header.match(/X-QUALITY:\s*(.*)/);
-    const resMatch = header.match(/X-RES:\s*(.*)/);
-    let recTime = 0;
-    if (recStart) {
-    recTime = Math.floor((Date.now() - recStart) / 1000);
+    const { value, done } = await reader.read();
+    if (done) break;
+  
+    const text = new TextDecoder().decode(value);
+    buffer += text;
+  
+    const headerEnd = buffer.indexOf("\r\n\r\n");
+    if (headerEnd !== -1) {
+      const header = buffer.slice(0, headerEnd);
+  
+      const fpsMatch = header.match(/X-FPS:\s*(.*)/);
+      const qualityMatch = header.match(/X-QUALITY:\s*(.*)/);
+      const resMatch = header.match(/X-RES:\s*(.*)/);
+      let recTime = 0;
+      fps = fpsMatch[0];
+      
+      if (recStart) {
+        recTime = Math.floor((Date.now() - recStart) / 1000);
+      }
+      const mm = String(Math.floor(recTime / 60)).padStart(2,'0');
+      const ss = String(recTime % 60).padStart(2,'0');
+      
+      overlay.textContent = `FPS: ${fpsMatch[1]} | REC: ${mm}:${ss} | Resolution: ${resMatch[1]} | Quality: ${qualityMatch[1]}`;
+      
+      
+      
+      buffer = buffer.slice(headerEnd + 4);
     }
-    const mm = String(Math.floor(recTime / 60)).padStart(2,'0');
-    const ss = String(recTime % 60).padStart(2,'0');
-    
-    overlay.textContent = `FPS: ${fpsMatch[1]} | REC: ${mm}:${ss} | Resolution: ${resMatch[1]} | Quality: ${qualityMatch[1]}`;
-    
-    buffer = buffer.slice(headerEnd + 4);
   }
-  }
-})();
-//end
+})(); //end
 
 // Check if camera active
 setInterval(() => {
   if (fps === 0) {
-  placeholder.style.display = "block";
+    placeholder.style.display = "block";
+    if (isPaused) {
+      //alert("Camera paused.");
+      isPaused = true;
+    } else {
+      //alert("Waiting for camera ...")
+      isPaused = false;
+    }
+    
   } else {
-  placeholder.style.display = "none";
+    placeholder.style.display = "none";
+    if (!isPaused) {
+      //alert("Camera started.");
+      isPaused = false;
+    }
   }
-}, 800);
+}, 500);
 
 // Recording
 startBtn.onclick = () => {
@@ -175,8 +202,8 @@ startBtn.onclick = () => {
   ctx = canvas.getContext("2d");
 
   function draw() {
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  requestAnimationFrame(draw);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    requestAnimationFrame(draw);
   }
   draw();
 
@@ -187,12 +214,12 @@ startBtn.onclick = () => {
   recorder.ondataavailable = e => chunks.push(e.data);
 
   recorder.onstop = () => {
-  const blob = new Blob(chunks, { type: "video/webm" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "recorded.webm";
-  a.click();
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recorded.webm";
+    a.click();
   };
 
   recorder.start();
