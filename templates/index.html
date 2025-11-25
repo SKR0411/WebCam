@@ -2,34 +2,126 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Home</title>
+  <title>WebCam Home</title>
   <style>
     body {
       font-family: system-ui, Arial;
-      background: #f1f3f4;
-      padding: 40px;
+      background: #eef1f5;
+      margin: 0;
+      padding: 0;
     }
+
+    header {
+      background: #1565c0;
+      color: white;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .container {
+      max-width: 750px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
     .card {
+      background: white;
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    a.button {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 12px 20px;
+      background: #1565c0;
+      color: white;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    a.button:hover {
+      background: #0f4fa0;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .feature-box {
       background: white;
       padding: 20px;
       border-radius: 14px;
-      max-width: 400px;
-      margin: auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
       text-align: center;
     }
-    a {
+
+    .feature-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
       color: #1565c0;
-      text-decoration: none;
-      font-weight: 600;
     }
   </style>
 </head>
 <body>
+
+<header>
+  <h1>WebCam Server</h1>
+</header>
+
+<div class="container">
+
   <div class="card">
-    <h2>Server running</h2>
-    <p>Open the pages below:</p>
-    <p><a href="/camera">Camera</a></p>
-    <p><a href="/viewer">Viewer</a></p>
+    <h2>Welcome</h2>
+    <p>Your webcam server is running successfully. Choose an option below to start.</p>
+
+    <a href="/camera" class="button">Open Camera</a>
+    <a href="/viewer" class="button" style="margin-left:10px;">Open Viewer</a>
   </div>
+
+  <h2 style="text-align:center; margin-bottom:15px;">Features</h2>
+
+  <div class="features">
+
+    <div class="feature-box">
+      <div class="feature-icon">📷</div>
+      <h3>Live Camera Capture</h3>
+      <p>Stream frames directly from your device camera.</p>
+    </div>
+
+    <div class="feature-box">
+      <div class="feature-icon">👀</div>
+      <h3>Real-Time Viewer</h3>
+      <p>Watch the live feed on any device in your network.</p>
+    </div>
+
+    <div class="feature-box">
+      <div class="feature-icon">💾</div>
+      <h3>Save Frames</h3>
+      <p>Download and store images from the live stream.</p>
+    </div>
+
+    <div class="feature-box">
+      <div class="feature-icon">📡</div>
+      <h3>Local Wi-Fi Access</h3>
+      <p>Access the server from any device on your Wi-Fi.</p>
+    </div>
+
+  </div>
+
+</div>
+
 </body>
 </html>
